@@ -1,0 +1,186 @@
+<?php
+/**
+ * @file
+ * Provides an Accordion formatter for Entity Reference fields.
+ */
+
+/**
+ * Implements hook_theme().
+ */
+function field_collection_accordion_theme() {
+
+  return array(
+    'field_collection_accordion_field' => array(
+      'variables' => array(
+        'items' => array(),
+        'settings' => array(),
+      ),
+      'file' => 'field_collection_accordion.theme.inc',
+      'template'  => 'theme/accordion',
+    ),
+    'field_collection_accordion' => array(
+      'variables' => array(
+        'entities' => array(),
+        'settings' => array(),
+        'accordion' => array(),
+      ),
+      'file' => 'field_collection_accordion.theme.inc',
+      'render element' => 'accordion',
+    ),
+  );  
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function field_collection_accordion_field_formatter_info() {
+  return array(
+    'field_collection_accordion' => array(
+      'label' => t('Accordion'),
+      'description' => t('Displays the rendered field collection fields in an Accordion.'),
+      'field types' => array(
+        'field_collection'
+      ),
+      'settings' => array(
+        'view_mode' => '',
+        'header' => '',
+        'content' => '',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function field_collection_accordion_field_formatter_settings_form($field,
+  $instance, $view_mode, $form, &$form_state) {
+
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $entity_info = entity_get_info('field_collection_item');
+  $options = array();
+
+  if (!empty($entity_info['view modes'])) {
+    foreach ($entity_info['view modes'] as $view_mode => $view_mode_settings) {
+      $options[$view_mode] = $view_mode_settings['label'];
+    }
+  }
+
+  if ($display['type'] == 'field_collection_accordion') {
+    $form['view_mode'] = array(
+      '#type' => 'select',
+      '#options' => $options,
+      '#title' => t('Accordion view mode'),
+      '#default_value' => $settings['view_mode'],
+    );
+    $form['view'] = array(
+      '#type' => 'select',
+      '#options' => array('open' => 'Open', 'closed' => 'Closed'),
+      '#title' => t('Accordion view mode'),
+      '#default_value' => $settings['view_mode'],
+    );
+    $form['header'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Header wrapper class'),
+      '#default_value' => $settings['header'],
+    );
+    $form['content'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Content wrapper class'),
+      '#default_value' => $settings['content'],
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function field_collection_accordion_field_formatter_settings_summary($field,
+  $instance, $view_mode) {
+
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary = array();
+  $entity_info = entity_get_info($field['settings']['target_type']);
+  $vars = array();
+  $vars['@mode'] = $settings['view_mode'];
+
+  if (isset($entity_info['view modes'][$settings['view_mode']]['label'])) {
+    $vars['@mode'] = $entity_info['view modes'][$settings['view_mode']]['label'];
+  }
+
+  $summary[] = t('Accordion rendered as @mode', $vars);
+
+  return implode('<br />', $summary);
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function field_collection_accordion_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+
+  switch ($display['type']) {
+    // This formatter simply outputs the net_field/period wrapped in a div.
+    case 'field_collection_accordion':
+
+      $view_mode = !empty($display['settings']['view_mode']) ? $display['settings']['view_mode'] : 'full';
+      foreach ($items as $delta => $item) {
+        if ($field_collection = field_collection_field_get_entity($item)) {
+          $tabs[] = drupal_render($field_collection->view($view_mode));
+        }
+      }
+
+      $element[] = array(
+        '#theme' => 'field_collection_accordion',
+        '#entities' => $tabs,
+        '#field_name' => $field['field_name'],
+        '#prefix' => '<div class="field-collection-accordion">',
+        '#suffix' => '</div>',
+        '#settings' => $display['settings'],
+        '#attached' => array(
+          'library' => array(array('system', 'ui.accordion')),
+          'js' => array(
+            drupal_get_path('module', 'field_collection_accordion') . '/js/field_collection_accordion.js'
+          ),
+        ),
+      );
+
+      break;
+  }
+
+  return $element;
+}
+
+/*
+ * This function loads the required JavaScripts and settings for a accordion
+ * instance.
+ *
+ * @param string $id [optional]
+ *  ID Attribute for Accordion container
+ *
+ */
+function field_collection_accordion_js_settings($id = NULL, $header_class = 'group-header', $content_class = 'group-inner-section', $accordion_view = 'closed') {
+
+  //If not empty id
+  if (!empty($id)) {
+
+    // JavaScript settings
+    $js_settings = array(
+      $id => array(
+        'accordion_id' => $id,
+        'accordion_header' => '.' . $header_class,
+        'accordion_content' => '.' . $content_class,
+        'accordion_view' => $accordion_view,
+      ),
+    );
+
+    // Add settings js
+    drupal_add_js(array('field_collection_accordion' => $js_settings), 'setting');
+  }
+}
