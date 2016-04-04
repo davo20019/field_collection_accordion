@@ -23,7 +23,7 @@
           //Define accordion
           $("#"+id).accordion({
             collapsible: true,
-            active: view,
+            active: false,
             header: header,
             heightStyle: "content",
             navigation: true
